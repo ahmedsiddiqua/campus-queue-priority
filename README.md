@@ -1,6 +1,5 @@
-In Campus Queue System
 # About
-This is a flutter based application where the admin can make queues and assign it to a cashier. The cashiers can access their respective queues and call for next orders so that the students dont have to wait in line to order. If a student who has booked queue, does not arrive and scan the qr on time, the cashier can call the next person in the queue. 
+In Campus Queue System is a flutter based application where the admin can make queues and assign it to a cashier. The cashiers can access their respective queues and call for next orders so that the students dont have to wait in line to order. If a student who has booked queue, does not arrive and scan the qr on time, the cashier can call the next person in the queue. 
 
 # Technologies Used
 - Flutter
