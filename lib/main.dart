@@ -40,20 +40,39 @@ class MyApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         title: "Campus Queue System",
         themeMode: ThemeMode.dark,
-        darkTheme: ThemeData.dark().copyWith(
-          scaffoldBackgroundColor: const Color(0xFF1A0A0A), // Dark red-black
+        darkTheme: ThemeData(
+          brightness: Brightness.dark,
+          fontFamily: 'Inter',
+          scaffoldBackgroundColor: const Color(0xFF18171B),
+          cardColor: const Color(0xFF26232A),
+          canvasColor: const Color(0xFF26232A),
           appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFF2D1414), // Dark red card
-            foregroundColor: Colors.white,
+            color: Color(0xFF26232A),
+            foregroundColor: Color(0xFFFFFFFF),
+            titleTextStyle: TextStyle(
+              fontFamily: 'Montserrat',
+              fontWeight: FontWeight.w700,
+              fontSize: 20,
+              color: Colors.white,
+            ),
             elevation: 0,
           ),
-          cardColor: const Color(0xFF2D1414), // Dark red card
-          colorScheme: const ColorScheme.dark(
-            primary: Color(0xFFD97706), // Dark orange
-            secondary: Color(0xFFB45309), // Dark yellow/orange
-            error: Color(0xFF991B1B), // Dark red
-            surface: Color(0xFF2D1414), // Dark red card
-            background: Color(0xFF1A0A0A), // Very dark red-black
+          colorScheme: ColorScheme.dark(
+            primary: Color(0xFFFFD84A), // custom yellow
+            secondary: Color(0xFFFF9800), // orange accent
+            error: Color(0xFFBF232A), // your red
+            background: Color(0xFF18171B),
+            surface: Color(0xFF26232A),
+          ),
+          textTheme: TextTheme(
+            displayLarge: TextStyle(fontFamily: 'Montserrat', fontWeight: FontWeight.w900, color: Color(0xFFFFD84A)),
+            headlineLarge: TextStyle(fontFamily: 'Montserrat', fontWeight: FontWeight.w700, color: Colors.white),
+            titleLarge: TextStyle(fontFamily: 'Montserrat', fontWeight: FontWeight.w600, color: Color(0xFFFFD84A)),
+            bodyLarge: TextStyle(fontFamily: 'Inter', fontSize: 17, color: Colors.white, fontWeight: FontWeight.w400),
+            bodyMedium: TextStyle(fontFamily: 'Inter', fontSize: 15, color: Colors.white70, fontWeight: FontWeight.w400),
+            bodySmall: TextStyle(fontFamily: 'Inter', fontSize: 13, color: Color(0xFFFFD84A)),
+            labelLarge: TextStyle(fontFamily: 'Montserrat', fontWeight: FontWeight.w500, color: Color(0xFFFFD84A), fontSize: 14),
+            labelSmall: TextStyle(fontFamily: 'Inter', color: Color(0xFFBF232A), fontWeight: FontWeight.w400, fontSize: 12),
           ),
         ),
         home: const AuthWrapper(),

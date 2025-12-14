@@ -54,11 +54,14 @@ class _AdminPageState extends State<AdminPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     "Create Queue",
                     style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Montserrat',
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFFFD84A),
+                      fontSize: 21,
+                      letterSpacing: -0.5,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -159,12 +162,12 @@ class _AdminPageState extends State<AdminPage> {
                                 mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Error: ${e.toString()}'),
+                                  Text('Error: ${e.toString()}', style: const TextStyle(fontFamily: 'Montserrat', fontWeight: FontWeight.w700, color: Color(0xFFBF232A))),
                                   const SizedBox(height: 4),
                                   Text(debugInfo, style: const TextStyle(fontSize: 10)),
                                 ],
                               ),
-                              backgroundColor: accentRed, // Dark red for errors
+                              backgroundColor: Color(0xFFBF232A), // Dark red for errors
                               duration: const Duration(seconds: 10),
                             ),
                           );
@@ -197,6 +200,8 @@ class _AdminPageState extends State<AdminPage> {
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
+                            fontFamily: 'Inter',
+                            color: Colors.white,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -205,6 +210,7 @@ class _AdminPageState extends State<AdminPage> {
                           style: TextStyle(
                             color: Colors.orange.shade300, // Light orange text
                             fontSize: 13,
+                            fontFamily: 'Inter',
                           ),
                         ),
                       ],

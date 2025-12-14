@@ -89,9 +89,11 @@ class CashierPage extends StatelessWidget {
                             children: [
                               Text(
                                 q.name,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+                                style: TextStyle(
+                                  fontFamily: 'Montserrat',
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFFFD84A),
+                                  fontSize: 20,
                                 ),
                               ),
                               const SizedBox(height: 4),

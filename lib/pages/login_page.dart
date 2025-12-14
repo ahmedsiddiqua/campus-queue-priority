@@ -49,19 +49,26 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
+                // Title
+                Text(
                   "Campus Queue",
                   style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Montserrat',
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFFFFD84A),
+                    fontSize: 30,
+                    letterSpacing: -1,
                   ),
                 ),
                 const SizedBox(height: 8),
+                // Subheading
                 Text(
                   "Sign in to continue",
                   style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.orange.shade300, // Light orange text
+                    fontFamily: 'Montserrat',
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFFFF9800),
+                    fontSize: 17,
                   ),
                 ),
                 const SizedBox(height: 24),
