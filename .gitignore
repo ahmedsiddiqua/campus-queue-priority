@@ -1,0 +1,71 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code
+.vscode/
+
+# Sensitive and secret files
+*.env
+*.key
+*.pem
+*.p12
+*.crt
+*.cer
+*.der
+secrets.*
+secret.*
+config.*
+*.bak
+*.tmp
+*.backup
+.env.*
+*.credentials
+*.token
+
+# Android/Google services secrets
+android/local.properties
+android/app/google-services.json
+
+# iOS/Google services secrets
+ios/Runner/GoogleService-Info.plist
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins*
+.pub-cache/
+.pub/
+/build/
+
+# Firebase config
+firebase.json
+lib/firebase_options.dart
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
