@@ -10,7 +10,7 @@ In Campus Queue System is a flutter based application where the admin can make q
 # Note
 - You will need to have knowledge of how to use and setup firestore functions if you are using the code from the repo.
 
-- This is just a prototype so it might not be secure and work as intended
+- You can view known bugs and to-do list [here](https://www.notion.so/ICQS-To-Do-2e119de6efaa80e8a3b9d74a34e45047?source=copy_link)
 
 > ICQS is a mini project that we as a team made for the course ` Open Source Tools and Technologies `. 
 
