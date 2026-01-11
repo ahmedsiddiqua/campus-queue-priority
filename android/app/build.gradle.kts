@@ -7,15 +7,18 @@ plugins {
 
 android {
     namespace = "com.example.icqs"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.icqs"
         minSdk = flutter.minSdkVersion
-        targetSdk = 34
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
+
+    // Use the highest NDK suggested by plugins for compatibility and 16KB page alignment
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

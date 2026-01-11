@@ -17,9 +17,10 @@ const _cfg = (() => {
     const cfg = functions.config && functions.config().app ? functions.config().app : {};
     const domains = cfg.allowed_domains ? cfg.allowed_domains.split(',').map(s => s.trim()).filter(Boolean) : ['mite.ac.in','asterhyphen.xyz'];
     const defaultTimeout = Number(cfg.default_no_show_timeout) || 300;
-    return { allowedDomains: domains, defaultNoShowTimeout: defaultTimeout };
+    const createQueueCooldownSeconds = Number(cfg.create_queue_cooldown_seconds) || 60;
+    return { allowedDomains: domains, defaultNoShowTimeout: defaultTimeout, createQueueCooldownSeconds };
   } catch (e) {
-    return { allowedDomains: ['mite.ac.in','asterhyphen.xyz'], defaultNoShowTimeout: 300 };
+    return { allowedDomains: ['mite.ac.in','asterhyphen.xyz'], defaultNoShowTimeout: 300, createQueueCooldownSeconds: 60 };
   }
 })();
 
@@ -125,8 +126,17 @@ async function callNextInternal(queueId) {
   return { success: true, email: nextData.email };
 }
 
+// Helper: check cooldowns (pure function, exported for tests)
+function canPerformActionSince(lastTimestamp, now, cooldownSeconds) {
+  if (!lastTimestamp) return { allowed: true, remainingMs: 0 };
+  const elapsed = now - lastTimestamp;
+  const cooldownMs = cooldownSeconds * 1000;
+  if (elapsed >= cooldownMs) return { allowed: true, remainingMs: 0 };
+  return { allowed: false, remainingMs: cooldownMs - elapsed };
+}
+
 // ---------------------------------------------------------
-// ADMIN → CREATE QUEUE (HTTP function)
+// ADMIN → CREATE QUEUE (HTTP function) with server-side cooldown
 // ---------------------------------------------------------
 exports.createQueue = functions.https.onRequest(async (req, res) => {
   // Handle CORS
@@ -147,11 +157,15 @@ exports.createQueue = functions.https.onRequest(async (req, res) => {
   try {
     const requestData = req.body.data || req.body;
     console.log('createQueue HTTP called - body:', JSON.stringify(req.body));
-    
-    const uid = requestData.uid;
+
+    // Prefer verified auth token when available
+    const auth = await verifyAuthFromReq(req);
+    const uid = (auth && auth.uid) || requestData.uid;
+    const email = (auth && auth.email) || requestData.email;
+
     const { name, cashierEmail } = requestData;
 
-    console.log('Extracted - uid:', uid, 'name:', name, 'cashierEmail:', cashierEmail);
+    console.log('Extracted - uid:', uid, 'email:', email, 'name:', name, 'cashierEmail:', cashierEmail);
 
     if (!uid) {
       res.status(401).json({ error: { message: "Not logged in", status: "UNAUTHENTICATED" } });
@@ -169,10 +183,33 @@ exports.createQueue = functions.https.onRequest(async (req, res) => {
       return;
     }
 
+    // Server-side cooldown per-admin for queue creation
+    const cooldownSeconds = Number(_cfg.createQueueCooldownSeconds) || 60;
+    const now = Date.now();
+    const rateDocRef = db.collection('rateLimits').doc(uid);
+
+    try {
+      await db.runTransaction(async (t) => {
+        const r = await t.get(rateDocRef);
+        const last = r.exists ? r.data().lastCreateQueue : null;
+        const check = canPerformActionSince(last, now, cooldownSeconds);
+        if (!check.allowed) {
+          throw new functions.https.HttpsError('resource-exhausted', `Please wait ${Math.ceil(check.remainingMs / 1000)}s before creating another queue`);
+        }
+        t.set(rateDocRef, { lastCreateQueue: now }, { merge: true });
+      });
+    } catch (err) {
+      if (err instanceof functions.https.HttpsError) {
+        res.status(429).json({ error: { message: err.message, status: err.code } });
+        return;
+      }
+      throw err;
+    }
+
     const ref = await db.collection("queues").add({
       name,
       cashierEmail,
-      createdAt: Date.now(),
+      createdAt: now,
       // default no-show timeout (seconds) - can be overridden by admin
       noShowTimeoutSeconds: requestData.noShowTimeoutSeconds || _cfg.defaultNoShowTimeout,
     });
@@ -619,6 +656,196 @@ async function processNoShowsForQueue(queueId) {
   return { processed: false, reason: 'not expired' };
 }
 
+// Admin helper: check role quickly
+async function isAdminUid(uid) {
+  if (!uid) return false;
+  const role = await getRole(uid);
+  return role === 'admin';
+}
+
+// ADMIN → UPDATE QUEUE (HTTP function)
+exports.updateQueue = functions.https.onRequest(async (req, res) => {
+  // CORS
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: { message: "Method not allowed", status: "INVALID_ARGUMENT" } });
+    return;
+  }
+
+  try {
+    const requestData = req.body.data || req.body;
+    const auth = await verifyAuthFromReq(req);
+    const uid = (auth && auth.uid) || requestData.uid;
+
+    if (!uid) {
+      res.status(401).json({ error: { message: "Not logged in", status: "UNAUTHENTICATED" } });
+      return;
+    }
+
+    if (!await isAdminUid(uid)) {
+      res.status(403).json({ error: { message: "Only admin can update queues", status: "PERMISSION_DENIED" } });
+      return;
+    }
+
+    const { queueId, name, cashierEmail, noShowTimeoutSeconds } = requestData;
+    if (!queueId) {
+      res.status(400).json({ error: { message: "Missing queueId", status: "INVALID_ARGUMENT" } });
+      return;
+    }
+
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (cashierEmail) updateData.cashierEmail = cashierEmail;
+    if (typeof noShowTimeoutSeconds !== 'undefined') updateData.noShowTimeoutSeconds = Number(noShowTimeoutSeconds);
+
+    if (Object.keys(updateData).length === 0) {
+      res.status(400).json({ error: { message: "No fields to update", status: "INVALID_ARGUMENT" } });
+      return;
+    }
+
+    await db.collection('queues').doc(queueId).set(updateData, { merge: true });
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('updateQueue error:', error);
+    res.status(500).json({ error: { message: error.message, status: "INTERNAL" } });
+  }
+});
+
+// ADMIN → DELETE QUEUE (HTTP function) - removes subcollections tokens, noShows and current token
+exports.deleteQueue = functions.https.onRequest(async (req, res) => {
+  // CORS
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: { message: "Method not allowed", status: "INVALID_ARGUMENT" } });
+    return;
+  }
+
+  try {
+    const requestData = req.body.data || req.body;
+    const auth = await verifyAuthFromReq(req);
+    const uid = (auth && auth.uid) || requestData.uid;
+
+    if (!uid) {
+      res.status(401).json({ error: { message: "Not logged in", status: "UNAUTHENTICATED" } });
+      return;
+    }
+
+    if (!await isAdminUid(uid)) {
+      res.status(403).json({ error: { message: "Only admin can delete queues", status: "PERMISSION_DENIED" } });
+      return;
+    }
+
+    const { queueId } = requestData;
+    if (!queueId) {
+      res.status(400).json({ error: { message: "Missing queueId", status: "INVALID_ARGUMENT" } });
+      return;
+    }
+
+    const queueRef = db.collection('queues').doc(queueId);
+    const queueDoc = await queueRef.get();
+    if (!queueDoc.exists) {
+      res.status(404).json({ error: { message: "Queue not found", status: "NOT_FOUND" } });
+      return;
+    }
+
+    // delete subcollections tokens and noShows and current/token if present
+    const deleteCollectionDocs = async (colRef) => {
+      const snap = await colRef.limit(500).get();
+      if (snap.empty) return;
+      const batch = db.batch();
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    };
+
+    try {
+      await deleteCollectionDocs(queueRef.collection('tokens'));
+      await deleteCollectionDocs(queueRef.collection('noShows'));
+      await deleteCollectionDocs(queueRef.collection('current'));
+    } catch (e) {
+      console.warn('Error deleting subcollections (continuing):', e.message);
+    }
+
+    await queueRef.delete();
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('deleteQueue error:', error);
+    res.status(500).json({ error: { message: error.message, status: "INTERNAL" } });
+  }
+});
+
+// ADMIN → SET USER ROLE (HTTP function) - admins can set roles; optionally sets custom claims
+exports.setUserRole = functions.https.onRequest(async (req, res) => {
+  // CORS
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: { message: "Method not allowed", status: "INVALID_ARGUMENT" } });
+    return;
+  }
+
+  try {
+    const requestData = req.body.data || req.body;
+    const auth = await verifyAuthFromReq(req);
+    const adminUid = (auth && auth.uid) || requestData.adminUid;
+
+    if (!adminUid) {
+      res.status(401).json({ error: { message: "Not logged in", status: "UNAUTHENTICATED" } });
+      return;
+    }
+
+    if (!await isAdminUid(adminUid)) {
+      res.status(403).json({ error: { message: "Only admin can assign roles", status: "PERMISSION_DENIED" } });
+      return;
+    }
+
+    const { targetUid, role, setCustomClaim } = requestData;
+    if (!targetUid || !role) {
+      res.status(400).json({ error: { message: "Missing targetUid or role", status: "INVALID_ARGUMENT" } });
+      return;
+    }
+
+    // Update users/{uid}.role document
+    await db.collection('users').doc(targetUid).set({ role }, { merge: true });
+
+    if (setCustomClaim) {
+      try {
+        await admin.auth().setCustomUserClaims(targetUid, { role });
+      } catch (e) {
+        console.warn('Failed to set custom claim:', e.message);
+      }
+    }
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('setUserRole error:', error);
+    res.status(500).json({ error: { message: error.message, status: "INTERNAL" } });
+  }
+});
+
+
 // Scheduled function to run periodically and process expired tokens
 if (functions.pubsub && typeof functions.pubsub.schedule === 'function') {
   exports.scheduledProcessNoShows = functions.pubsub
@@ -650,4 +877,6 @@ module.exports._test = {
   computePriorityFromEmail,
   callNextInternal,
   processNoShowsForQueue,
+  canPerformActionSince,
+  isAdminUid,
 };
